@@ -142,6 +142,23 @@ src/
 │   └── prompts.yaml         # LLM prompts
 └── main.py                  # Lifespan, app creation
 
+tests/
+├── unit/
+│   ├── core/                # Core component tests
+│   │   ├── test_state.py
+│   │   ├── test_exceptions.py
+│   │   └── test_prompts.py
+│   ├── workflows/           # Workflow node tests
+│   │   ├── test_graph.py
+│   │   ├── test_rewrite_node.py
+│   │   ├── test_retrieve_node.py
+│   │   └── test_generate_node.py
+│   └── services/            # Service tests
+│       ├── test_rag_service.py
+│       └── test_vector_store.py
+└── integration/
+    └── test_api.py          # API endpoint tests
+
 scripts/
 ├── convert_pdfs.py          # PDF to Markdown converter
 └── ingest_data.py           # Data ingestion pipeline
@@ -154,12 +171,20 @@ notebooks/
 
 ## 🧪 Testing
 
+Tests are organized by component type for better maintainability:
+
 ```bash
 # Run all tests
 pytest tests/ -v
 
 # Run with coverage
 pytest tests/ --cov=src
+
+# Run specific test suites
+pytest tests/unit/core/ -v           # Core components
+pytest tests/unit/workflows/ -v      # Workflow nodes
+pytest tests/unit/services/ -v       # Services
+pytest tests/integration/ -v         # API integration
 ```
 
 ## 📊 Data Ingestion
