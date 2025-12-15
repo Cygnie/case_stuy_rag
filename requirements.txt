@@ -1,0 +1,24 @@
+fastapi
+uvicorn
+python-dotenv
+pydantic-settings
+
+# LangChain ecosystem
+langchain
+langchain-community
+langchain-google-genai
+langgraph
+
+# Vector store and embeddings
+qdrant-client
+fastembed
+google-generativeai
+
+# Utilities
+pyyaml
+tenacity
+
+# Testing
+pytest
+pytest-asyncio
+httpx

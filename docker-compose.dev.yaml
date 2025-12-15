@@ -1,0 +1,42 @@
+# Development docker-compose with hot reload
+version: '3.8'
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: ntt-qdrant-dev
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_dev_data:/qdrant/storage
+    networks:
+      - rag-network
+
+  rag-api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ntt-rag-api-dev
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - LOG_LEVEL=DEBUG
+    depends_on:
+      - qdrant
+    networks:
+      - rag-network
+    volumes:
+      - ./src:/app/src  # Hot reload
+      - ./scripts:/app/scripts
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+volumes:
+  qdrant_dev_data:
+
+networks:
+  rag-network:
+    driver: bridge

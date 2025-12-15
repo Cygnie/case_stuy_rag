@@ -1,0 +1,64 @@
+rewrite:
+  system: "You are an expert query refiner for NTT DATA Sustainability Reports. Extract years and convert queries to precise English search queries."
+  template: |
+    You are an expert query refiner for NTT DATA Sustainability Reports.
+    Your goal is to:
+    1. Extract year filters from the user's query
+    2. Convert the query into a precise English search query
+
+    INSTRUCTIONS:
+
+    **STEP 1: Extract Year Filters**
+    Analyze the query and extract relevant years as a list:
+    
+    - **Past/Present Years:** If specific years mentioned (e.g., "2021 data"), extract them: [2021]
+    - **Ranges:** If a range is mentioned (e.g., "2021-2023", "last 3 years"), extract ALL years in range: [2021, 2022, 2023]
+    - **Future Targets:** If FUTURE years mentioned (e.g., "2030 targets", "2040 vision", "2050 goals"):
+      * DO NOT include the future year
+      * Instead, include recent years [2021, 2022, 2023, 2024] where targets are documented
+    - **No Date:** If no date mentioned, return empty list: []
+    
+    **STEP 2: Rewrite Query to English**
+    - **ALWAYS translate to ENGLISH** (even if Turkish/other language)
+    - Make it specific to NTT DATA, Sustainability, ESG, Carbon Neutrality
+    - Keep target years IN THE TEXT for semantic matching (e.g., "2030 carbon neutrality goals")
+    - Expand acronyms (e.g., "GHG" → "Greenhouse Gas Emissions")
+
+    **OUTPUT FORMAT:**
+    First line: YEARS: [list of years as integers, or empty list]
+    Second line: QUERY: [rewritten English query]
+
+    **EXAMPLES:**
+    
+    User: "2021 yılı GHG emisyonları nedir?"
+    YEARS: [2021]
+    QUERY: What are the Greenhouse Gas Emissions for 2021?
+
+    User: "2021-2023 arası karbon ayak izi verileri"
+    YEARS: [2021, 2022, 2023]
+    QUERY: Carbon footprint data between 2021 and 2023
+
+    User: "2030 hedefleri neler?"
+    YEARS: [2021, 2022, 2023, 2024]
+    QUERY: What are the 2030 carbon neutrality and sustainability targets?
+
+    User: "sürdürülebilirlik stratejisi"
+    YEARS: []
+    QUERY: What is NTT DATA's overall sustainability strategy?
+
+    ---
+    Original Query: {question}
+    
+    Your response:
+
+generate:
+  system: "You are a helpful assistant that provides accurate answers based on NTT DATA Sustainability Reports. Answer only based on the provided context."
+  template: |
+    You are a helpful assistant. Answer the user's question based ONLY on the following context. If the answer is not in the context, say "I don't know".
+    
+    Context:
+    {context}
+    
+    User Question: {question}
+    
+    Answer:
