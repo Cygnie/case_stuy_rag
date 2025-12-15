@@ -1,37 +1,6 @@
-"""Unit tests for core components."""
+"""Unit tests for custom exceptions."""
 import pytest
-from src.core.state import GraphState
 from src.core.exceptions import RAGException, LLMException, VectorStoreException, PromptException
-
-
-class TestGraphState:
-    """Unit tests for GraphState TypedDict."""
-    
-    def test_graph_state_structure(self):
-        """Test GraphState TypedDict structure."""
-        state: GraphState = {
-            "question": "What is sustainability?",
-            "rewritten_question": "NTT DATA sustainability strategy",
-            "documents": ["doc1", "doc2"],
-            "answer": "Sustainability is...",
-            "years": [2021, 2022]
-        }
-        
-        assert state["question"] == "What is sustainability?"
-        assert len(state["documents"]) == 2
-        assert state["years"] == [2021, 2022]
-    
-    def test_graph_state_optional_years(self):
-        """Test GraphState with no years."""
-        state: GraphState = {
-            "question": "General question",
-            "rewritten_question": "",
-            "documents": [],
-            "answer": "",
-            "years": None
-        }
-        
-        assert state["years"] is None
 
 
 class TestExceptions:
@@ -57,3 +26,24 @@ class TestExceptions:
         """Test exception can be raised and caught by parent."""
         with pytest.raises(RAGException):
             raise LLMException("Test error")
+    
+    def test_llm_exception_inherits_from_rag_exception(self):
+        """Test exception hierarchy."""
+        exc = LLMException("test error")
+        assert isinstance(exc, RAGException)
+    
+    def test_exception_can_be_caught_by_parent(self):
+        """Test catching child exceptions with parent type."""
+        def raise_llm_exception():
+            raise LLMException("API error")
+        
+        with pytest.raises(RAGException):
+            raise_llm_exception()
+    
+    def test_exception_chaining(self):
+        """Test exception chaining with 'from'."""
+        original = ValueError("original error")
+        chained = VectorStoreException("wrapped error")
+        chained.__cause__ = original
+        
+        assert chained.__cause__ is original

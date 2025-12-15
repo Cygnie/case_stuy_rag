@@ -1,6 +1,6 @@
-"""Unit tests for services (ASYNC)."""
+"""Unit tests for RAGService."""
 import pytest
-from unittest.mock import Mock, MagicMock, AsyncMock
+from unittest.mock import Mock
 
 from src.services.rag_service import RAGService, RAGResponse
 from src.core.interfaces import BaseLLMService, BaseVectorStore
@@ -15,7 +15,7 @@ class TestRAGService:
         llm = Mock(spec=BaseLLMService)
         # Rewrite node expects YEARS:/QUERY: format
         llm.generate.side_effect = [
-            "YEARS: [2023]\nQUERY: What is sustainability?",  # rewrite
+            "YEARS: [2023]\\nQUERY: What is sustainability?",  # rewrite
             "This is the final answer about sustainability."   # generate
         ]
         return llm
