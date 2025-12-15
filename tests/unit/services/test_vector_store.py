@@ -2,7 +2,7 @@
 import pytest
 import numpy as np
 
-from src.services.vector_store import QdrantVectorStore
+from src.services.vector_stores import QdrantVectorStore
 
 
 class TestVectorStore:

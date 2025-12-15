@@ -1,36 +1,57 @@
 """RAG workflow graph using LangGraph."""
+import logging
 from langgraph.graph import StateGraph, END
+import uuid
 
-from src.core import GraphState
-from src.workflows.nodes import RewriteNode, RetrieveNode, GenerateNode
+from src.core import GraphState, BaseLLMService, BaseVectorStore
+from src.prompts.prompts import PromptManager
+from src.workflows.nodes.rewrite import RewriteNode
+from src.workflows.nodes import RetrieveNode, GenerateNode
 
 
 class RAGGraph:
-    """Orchestrator for RAG workflow: Rewrite -> Retrieve -> Generate."""
+    """
+    RAG workflow builder using LangGraph.
+    Compiles graph once and caches it for reuse ("Compile Once, Run Many").
+    """
     
     def __init__(
         self,
-        rewrite_node: RewriteNode,
-        retrieve_node: RetrieveNode,
-        generate_node: GenerateNode
+        llm: BaseLLMService,
+        vector_store: BaseVectorStore,
+        prompt_manager: PromptManager,
+        rag_k: int = 5
     ):
-        """Initialize RAG graph.
+        """Initialize RAG graph with services.
         
         Args:
-            rewrite_node: Node for query rewriting
-            retrieve_node: Node for context retrieval
-            generate_node: Node for answer generation
+            llm: LLM service for text generation
+            vector_store: Vector store for document retrieval
+            prompt_manager: Prompt template manager
+            rag_k: Number of documents to retrieve
         """
-        self.rewrite_node = rewrite_node
-        self.retrieve_node = retrieve_node
-        self.generate_node = generate_node
+        self.llm = llm
+        self.vector_store = vector_store
+        self.prompt_manager = prompt_manager
+        self.rag_k = rag_k
+        self._compiled = None  # Cache for compiled graph
+        
+        # Create nodes (reusable)
+        self.rewrite_node = RewriteNode(llm=llm, prompt_manager=prompt_manager)
+        self.retrieve_node = RetrieveNode(vector_store=vector_store, k=rag_k)
+        self.generate_node = GenerateNode(llm=llm, prompt_manager=prompt_manager)
     
-    def compile(self):
-        """Compile the LangGraph workflow.
+    def build(self):
+        """Build and compile the LangGraph workflow (cached).
+        
+        Compiles the graph once and caches it for subsequent calls.
         
         Returns:
-            Compiled runnable graph
+            Compiled LangGraph workflow
         """
+        if self._compiled:
+            return self._compiled
+        
         workflow = StateGraph(GraphState)
         
         # Add nodes
@@ -44,4 +65,28 @@ class RAGGraph:
         workflow.add_edge("retrieve", "generate")
         workflow.add_edge("generate", END)
         
-        return workflow.compile()
+        # Compile and cache
+        self._compiled = workflow.compile()
+        return self._compiled
+    
+    async def run(self, question: str):
+        """Helper to run the compiled graph asynchronously.
+        
+        Args:
+            question: User's question
+            
+        Returns:
+            Final state dict with answer, sources, etc.
+        """
+        graph = self.build()  # Get cached compiled graph
+        
+        initial_state: GraphState = {
+            "question": question,
+            "rewritten_question": "",
+            "documents": [],
+            "answer": "",
+            "years": None
+        }
+        
+        result = await graph.ainvoke(initial_state)
+        return result

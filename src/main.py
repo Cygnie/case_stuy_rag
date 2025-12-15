@@ -1,97 +1,58 @@
-"""FastAPI application entry point with lifespan management."""
+"""FastAPI application with RAG workflow using LangGraph."""
+import sys
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from qdrant_client import QdrantClient
 
-from src.core import setup_logging, PromptManager, settings
-from src.services import (
-    GeminiLLMService, 
-    GeminiEmbeddingService, 
-    FastEmbedSparseService,
-    QdrantVectorStore,
-    RAGService
-)
-from src.api.v1.router import api_router
+from src.core.config import settings
+from src.container import build_container
+from src.api.v1.endpoints import health, rag
+from src.core.logging_config import setup_logging
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifecycle management.
     
-    All services are initialized ONCE at startup and shared across all requests.
+    Initializes all services once at startup and stores them in a container.
+    Cleans up resources on shutdown.
     """
     # Setup logging
     setup_logging(level=settings.log_level)
     logger = logging.getLogger(__name__)
     logger.info("Starting application...")
     
-    # Initialize all services ONCE
-    logger.info("Initializing services...")
+    # Build service container
+    try:
+        container = build_container(settings)
+    except Exception as e:
+        logger.critical(f"Failed to build service container: {e}")
+        logger.critical("Application cannot start. Exiting.")
+        sys.exit(1)
     
-    # LLM Service
-    llm_service = GeminiLLMService(
-        api_key=settings.llm_api_key,
-        model=settings.llm_model,
-        temperature=settings.llm_temperature
-    )
+    # Store container in app state
+    app.state.container = container
+    logger.info("Application started successfully")
     
-    # Embedding Services
-    dense_embedder = GeminiEmbeddingService(
-        api_key=settings.embedding_api_key,
-        model=settings.embedding_model
-    )
-    sparse_embedder = FastEmbedSparseService()
+    yield
     
-    # Qdrant Client
-    qdrant_client = QdrantClient(url=settings.qdrant_url)
-    logger.info(f"Connected to Qdrant at {settings.qdrant_url}")
-    
-    # Vector Store
-    vector_store = QdrantVectorStore(
-        client=qdrant_client,
-        dense_embedder=dense_embedder,
-        sparse_embedder=sparse_embedder,
-        collection_name=settings.qdrant_collection_name
-    )
-    
-    # Prompt Manager
-    prompt_manager = PromptManager()
-    
-    # RAG Service (Business Logic Layer)
-    rag_service = RAGService(
-        llm=llm_service,
-        vector_store=vector_store,
-        prompt_manager=prompt_manager,
-        rag_k=settings.rag_k
-    )
-    
-    # Store in app.state for access in endpoints
-    app.state.settings = settings
-    app.state.llm_service = llm_service
-    app.state.vector_store = vector_store
-    app.state.rag_service = rag_service
-    
-    logger.info("All services initialized successfully!")
-    
-    yield  # Application is running
-    
-    # Shutdown cleanup
+    # Cleanup on shutdown
     logger.info("Shutting down application...")
-    qdrant_client.close()
-    logger.info("Cleanup complete")
+    await container.shutdown()
+    logger.info("Application shutdown complete")
 
 
-# Create FastAPI app with lifespan
+# Create FastAPI app
 app = FastAPI(
-    title="NTT DATA RAG API",
-    description="Hybrid Search RAG with LangGraph, Gemini, and Qdrant",
+    title="RAG API",
+    description="Retrieval-Augmented Generation API with LangGraph workflow",
     version="1.0.0",
     lifespan=lifespan
 )
 
-# CORS middleware
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -100,17 +61,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include v1 API router
-app.include_router(api_router, prefix="/api/v1")
+# Include routers
+app.include_router(health.router, tags=["health"])
+app.include_router(rag.router, prefix="/api/v1", tags=["rag"])
 
-
-@app.get("/")
-async def root():
-    """Root endpoint with API information."""
-    return {
-        "message": "NTT DATA RAG API - Hybrid Search with LangGraph",
-        "version": "1.0.0",
-        "docs": "/docs",
-        "health": "/api/v1/health",
-        "ask": "/api/v1/ask"
-    }
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

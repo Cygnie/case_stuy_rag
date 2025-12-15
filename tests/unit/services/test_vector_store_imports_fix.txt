@@ -1,0 +1,6 @@
+"""Unit tests for QdrantVectorStore."""
+import pytest
+from unittest.mock import Mock, AsyncMock, patch
+
+from src.services.vector_stores import QdrantVectorStore
+from src.core.exceptions import VectorStoreException

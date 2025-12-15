@@ -17,14 +17,17 @@ class Settings(BaseSettings):
     llm_api_key: str
     embedding_api_key: str
     
+    # LLM Configuration
+    llm_provider: str = "gemini"  # Provider: gemini, openai, anthropic
+    llm_model: str = "gemini-2.0-flash-exp"
+    llm_temperature: float = 0.7
+    
     # Qdrant Settings
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection_name: str = "ntt_hybrid_experiment"
     
     # Model Settings
-    llm_model: str = "gemini-2.5-flash"
     embedding_model: str = "models/embedding-001"
-    llm_temperature: float = 0.7
     
     # RAG Settings
     rag_k: int = 5

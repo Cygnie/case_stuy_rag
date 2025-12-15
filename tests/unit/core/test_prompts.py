@@ -1,6 +1,6 @@
 """Unit tests for PromptManager."""
 import pytest
-from src.core.prompts import PromptManager
+from src.prompts.prompts import PromptManager
 from src.core.exceptions import PromptException
 
 

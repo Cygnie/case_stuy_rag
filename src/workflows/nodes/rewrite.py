@@ -6,7 +6,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.core.state import GraphState
 from src.core.interfaces import BaseLLMService
-from src.core.prompts import PromptManager
+from src.prompts.prompts import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +34,18 @@ class RewriteNode:
     
     def execute(self, state: GraphState) -> GraphState:
         """Rewrite the user's question and extract years using structured output."""
+        from datetime import datetime
+        
         system_prompt = self.prompt_manager.get_system("rewrite")
         template = self.prompt_manager.get("rewrite", "template")
         
-        prompt = template.format(question=state["question"])
+        # Get current date for temporal context
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        
+        prompt = template.format(
+            question=state["question"],
+            current_date=current_date
+        )
         
         messages = [SystemMessage(content=system_prompt), HumanMessage(content=prompt)]
         

@@ -3,8 +3,8 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from src.core import BaseLLMService, BaseVectorStore, PromptManager, GraphState
-from src.workflows.nodes import RewriteNode, RetrieveNode, GenerateNode
+from src.core import BaseLLMService, BaseVectorStore, GraphState
+from src.prompts.prompts import PromptManager
 from src.workflows.graph import RAGGraph
 
 logger = logging.getLogger(__name__)
@@ -22,8 +22,7 @@ class RAGResponse:
 class RAGService:
     """Business logic layer for RAG operations (ASYNC).
     
-    Orchestrates the RAG workflow: Rewrite -> Retrieve -> Generate.
-    Uses async to avoid blocking the event loop.
+    Uses RAGGraph which compiles workflow once and caches it.
     """
     
     def __init__(
@@ -41,40 +40,14 @@ class RAGService:
             prompt_manager: Prompt template manager
             rag_k: Number of documents to retrieve
         """
-        self.llm = llm
-        self.vector_store = vector_store
-        self.prompt_manager = prompt_manager
-        self.rag_k = rag_k
-        self.graph = self._build_graph()
-        logger.info("RAGService initialized (async)")
-    
-    def _build_graph(self):
-        """Build and compile the LangGraph workflow.
-        
-        Returns:
-            Compiled LangGraph application
-        """
-        rewrite_node = RewriteNode(
-            llm=self.llm,
-            prompt_manager=self.prompt_manager
+        # Create RAG graph (will compile on first use)
+        self.graph = RAGGraph(
+            llm=llm,
+            vector_store=vector_store,
+            prompt_manager=prompt_manager,
+            rag_k=rag_k
         )
-        retrieve_node = RetrieveNode(
-            vector_store=self.vector_store,
-            k=self.rag_k
-        )
-        generate_node = GenerateNode(
-            llm=self.llm,
-            prompt_manager=self.prompt_manager
-        )
-        
-        rag_graph = RAGGraph(
-            rewrite_node=rewrite_node,
-            retrieve_node=retrieve_node,
-            generate_node=generate_node
-        )
-        
-        logger.debug("RAG graph compiled")
-        return rag_graph.compile()
+        logger.info("RAGService initialized with lazy-compiled graph")
     
     async def ask(self, question: str) -> RAGResponse:
         """Process a question and return answer with sources (ASYNC).
@@ -87,15 +60,8 @@ class RAGService:
         """
         logger.info(f"Processing question: '{question[:50]}...'")
         
-        initial_state: GraphState = {
-            "question": question,
-            "rewritten_question": "",
-            "documents": [],
-            "answer": "",
-            "years": None
-        }
-        
-        result = await self.graph.ainvoke(initial_state)
+        # Use graph's run() helper (compiles graph on first call, cached thereafter)
+        result = await self.graph.run(question)
         
         response = RAGResponse(
             answer=result["answer"],

@@ -47,6 +47,14 @@ rewrite:
     QUERY: What is NTT DATA's overall sustainability strategy?
 
     ---
+    **CURRENT DATE:** {current_date}
+    
+    **IMPORTANT:** Use current date to resolve relative time references:
+    - "this year" / "bu yıl" → current year
+    - "last year" / "geçen yıl" → current year - 1
+    - "recent years" / "son yıllar" → last 3-4 years including current
+    
+    ---
     Original Query: {question}
     
     Your response:

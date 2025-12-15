@@ -130,7 +130,10 @@ def client(mock_settings):
     """Create test client with mocked services.
     
     Creates a fresh FastAPI app WITHOUT lifespan to avoid real service init.
+    Uses container pattern for consistency with production code.
     """
+    from src.container.container import ServiceContainer
+    
     # Create a fresh app without lifespan
     test_app = FastAPI()
     test_app.include_router(api_router, prefix="/api/v1")
@@ -140,11 +143,14 @@ def client(mock_settings):
     async def root():
         return {"message": "Test API"}
     
-    # Set mock state
-    test_app.state.settings = mock_settings
-    test_app.state.llm_service = MockLLMService()
-    test_app.state.vector_store = MockVectorStore()
-    test_app.state.rag_service = MockRAGService()
+    # Create mock container
+    container = ServiceContainer()
+    container.llm_service = MockLLMService()
+    container.vector_store = MockVectorStore()
+    container.rag_service = MockRAGService()
+    
+    # Set container in app state (new pattern)
+    test_app.state.container = container
     
     with TestClient(test_app) as test_client:
         yield test_client

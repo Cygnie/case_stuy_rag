@@ -5,7 +5,7 @@ from unittest.mock import Mock
 from src.workflows.nodes.generate import GenerateNode
 from src.core.state import GraphState
 from src.core.interfaces import BaseLLMService
-from src.core.prompts import PromptManager
+from src.prompts.prompts import PromptManager
 
 
 class TestGenerateNode:

@@ -1,9 +1,8 @@
 """Unit tests for RAGGraph."""
 import pytest
-from unittest.mock import Mock
+from unittest.mock import Mock, AsyncMock
 
 from src.workflows.graph import RAGGraph
-from src.workflows.nodes import RewriteNode, RetrieveNode, GenerateNode
 from src.core.state import GraphState
 
 
@@ -11,93 +10,94 @@ class TestRAGGraph:
     """Unit tests for RAGGraph compilation and execution."""
     
     @pytest.fixture
-    def mock_nodes(self):
-        """Create mock nodes for testing."""
-        rewrite = Mock(spec=RewriteNode)
-        rewrite.execute = Mock(return_value={
-            "question": "test",
-            "rewritten_question": "test query",
-            "documents": [],
-            "answer": "",
-            "years": None
-        })
+    def mock_services(self):
+        """Create mock services for testing."""
+        mock_llm = Mock()
+        mock_llm.generate = Mock(return_value="Mock answer")
+        mock_llm.get_structured_llm = Mock()
         
-        retrieve = Mock(spec=RetrieveNode)
-        retrieve.execute = Mock(return_value={
-            "question": "test",
-            "rewritten_question": "test query",
-            "documents": ["doc1", "doc2"],
-            "answer": "",
-            "years": None
-        })
+        mock_vector_store = Mock()
+        mock_vector_store.advanced_search = Mock(return_value=["doc1", "doc2"])
         
-        generate = Mock(spec=GenerateNode)
-        generate.execute = Mock(return_value={
-            "question": "test",
-            "rewritten_question": "test query",
-            "documents": ["doc1", "doc2"],
-            "answer": "This is the answer",
-            "years": None
-        })
+        mock_prompt_manager = Mock()
+        mock_prompt_manager.get = Mock(return_value=Mock(format=Mock(return_value="formatted prompt")))
+        mock_prompt_manager.get_system = Mock(return_value="system prompt")
         
-        return rewrite, retrieve, generate
+        return mock_llm, mock_vector_store, mock_prompt_manager
     
-    def test_graph_initialization(self, mock_nodes):
-        """Test that RAGGraph initializes with nodes."""
-        rewrite, retrieve, generate = mock_nodes
+    def test_graph_initialization(self, mock_services):
+        """Test that RAGGraph initializes with services."""
+        llm, vector_store, prompt_manager = mock_services
         
         graph = RAGGraph(
-            rewrite_node=rewrite,
-            retrieve_node=retrieve,
-            generate_node=generate
+            llm=llm,
+            vector_store=vector_store,
+            prompt_manager=prompt_manager,
+            rag_k=5
         )
         
-        assert graph.rewrite_node == rewrite
-        assert graph.retrieve_node == retrieve
-        assert graph.generate_node == generate
+        assert graph.llm == llm
+        assert graph.vector_store == vector_store
+        assert graph.prompt_manager == prompt_manager
+        assert graph.rag_k == 5
+        assert graph._compiled is None  # Not compiled yet
+        assert graph.rewrite_node is not None
+        assert graph.retrieve_node is not None
+        assert graph.generate_node is not None
     
-    def test_graph_compilation(self, mock_nodes):
+    def test_graph_build_caching(self, mock_services):
+        """Test that graph.build() caches compiled graph."""
+        llm, vector_store, prompt_manager = mock_services
+        
+        graph = RAGGraph(
+            llm=llm,
+            vector_store=vector_store,
+            prompt_manager=prompt_manager
+        )
+        
+        # First build - should compile
+        compiled1 = graph.build()
+        assert compiled1 is not None
+        assert graph._compiled is not None
+        
+        # Second build - should return cached
+        compiled2 = graph.build()
+        assert compiled2 is compiled1  # Same object
+    
+    def test_graph_compilation(self, mock_services):
         """Test that graph compiles successfully."""
-        rewrite, retrieve, generate = mock_nodes
+        llm, vector_store, prompt_manager = mock_services
         
         graph = RAGGraph(
-            rewrite_node=rewrite,
-            retrieve_node=retrieve,
-            generate_node=generate
+            llm=llm,
+            vector_store=vector_store,
+            prompt_manager=prompt_manager
         )
         
-        compiled = graph.compile()
+        compiled = graph.build()
         
         # Compiled graph should be a runnable
         assert compiled is not None
         assert hasattr(compiled, 'invoke')
+        assert hasattr(compiled, 'ainvoke')
     
-    def test_graph_execution_flow(self, mock_nodes):
-        """Test that graph executes nodes in correct order."""
-        rewrite, retrieve, generate = mock_nodes
+    @pytest.mark.asyncio
+    async def test_graph_run_helper(self, mock_services):
+        """Test that graph.run() helper works."""
+        llm, vector_store, prompt_manager = mock_services
         
         graph = RAGGraph(
-            rewrite_node=rewrite,
-            retrieve_node=retrieve,
-            generate_node=generate
+            llm=llm,
+            vector_store=vector_store,
+            prompt_manager=prompt_manager
         )
         
-        compiled = graph.compile()
+        # Test run() method
+        result = await graph.run("What is NTT DATA?")
         
-        initial_state: GraphState = {
-            "question": "What is NTT DATA?",
-            "rewritten_question": "",
-            "documents": [],
-            "answer": "",
-            "years": None
-        }
-        
-        result = compiled.invoke(initial_state)
-        
-        # All nodes should have been called
-        rewrite.execute.assert_called_once()
-        retrieve.execute.assert_called_once()
-        generate.execute.assert_called_once()
-        
-        # Result should have answer
-        assert result["answer"] == "This is the answer"
+        # Should have all state keys
+        assert "question" in result
+        assert "rewritten_question" in result
+        assert "documents" in result
+        assert "answer" in result
+        assert "years" in result

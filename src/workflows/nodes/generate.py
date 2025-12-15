@@ -2,7 +2,7 @@
 import logging
 from src.core.state import GraphState
 from src.core.interfaces import BaseLLMService
-from src.core.prompts import PromptManager
+from src.prompts.prompts import PromptManager
 
 logger = logging.getLogger(__name__)
 

@@ -51,9 +51,11 @@ class TestRAGService:
             rag_k=5
         )
         
-        assert service.llm == mock_llm
-        assert service.vector_store == mock_vector_store
-        assert service.rag_k == 5
+        # RAGService should have graph
+        assert service.graph is not None
+        assert service.graph.llm == mock_llm
+        assert service.graph.vector_store == mock_vector_store
+        assert service.graph.rag_k == 5
     
     @pytest.mark.asyncio
     async def test_ask_returns_rag_response(self, mock_llm, mock_vector_store, mock_prompt_manager):
